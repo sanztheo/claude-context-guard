@@ -45,14 +45,30 @@ function formatTimeUntil(isoDate: string): string {
     : `${minutes}m`;
 }
 
+// stderr = visible in terminal, stdout = injected as additionalContext
+function logVisible(msg: string): void {
+  console.error(msg);
+}
+
+function injectContext(hookEvent: string, msg: string): void {
+  const output: HookOutput = {
+    hookSpecificOutput: {
+      hookEventName: hookEvent,
+      additionalContext: msg,
+    },
+  };
+  console.log(JSON.stringify(output));
+}
+
 async function main(): Promise<void> {
-  // Read stdin first to avoid broken pipe if hook runner waits for consumption
   const input: HookInput = JSON.parse(await Bun.stdin.text());
 
   const config = await loadConfig();
   if (!config.enabled) return;
 
   const sessionId = input.session_id;
+  const hookEvent = input.hook_event_name ?? "PostToolUse";
+  const isSessionStart = hookEvent === "SessionStart";
   const warnState = await getWarnState(sessionId);
 
   // 1. Check context %
@@ -71,42 +87,27 @@ async function main(): Promise<void> {
     }
   }
 
-  const isSessionStart = input.hook_event_name === "SessionStart";
-
-  // 3. On SessionStart, always show a status briefing
+  // 3. SessionStart: always show visible briefing in terminal
   if (isSessionStart) {
-    const parts = [`[CONTEXT GUARD] Context: ${contextPct}%`];
+    const parts = [`Context: ${contextPct}%`];
     if (config.check_usage_api) {
       parts.push(
-        `Usage 5h: ${usagePct}%${usageResetTime ? ` (resets in ${usageResetTime})` : ""}`,
+        `5h: ${usagePct}%${usageResetTime ? ` (${usageResetTime})` : ""}`,
       );
-      parts.push(`Usage 7d: ${usage7dPct}%`);
+      parts.push(`7d: ${usage7dPct}%`);
     }
-    const briefing = parts.join(" | ");
-
-    const output: HookOutput = {
-      hookSpecificOutput: {
-        hookEventName: "SessionStart",
-        additionalContext: briefing,
-      },
-    };
-    console.log(JSON.stringify(output));
-
-    // Still check thresholds below to also warn if needed
+    logVisible(`[CONTEXT GUARD] ${parts.join(" · ")}`);
   }
 
-  // 4. Build warnings
-  const warnings: string[] = [];
+  // 4. Threshold warnings — visible in terminal
   let needsDump = false;
 
-  // Context warnings
   if (
     contextPct >= config.context_critical_pct &&
     !warnState.context_critical
   ) {
-    warnings.push(
-      `[CONTEXT GUARD - CRITICAL] Context window at ${contextPct}%. ` +
-        `Compaction is imminent. Save your current state NOW, then use /compact.`,
+    logVisible(
+      `[CONTEXT GUARD] CRITICAL — context at ${contextPct}%. Compaction imminent.`,
     );
     warnState.context_critical = true;
     warnState.context_warned = true;
@@ -115,31 +116,27 @@ async function main(): Promise<void> {
     contextPct >= config.context_warning_pct &&
     !warnState.context_warned
   ) {
-    warnings.push(
-      `[CONTEXT GUARD - WARNING] Context window at ${contextPct}%. ` +
-        `Consider wrapping up the current task. A state dump will be saved at ${config.context_critical_pct}%.`,
+    logVisible(
+      `[CONTEXT GUARD] WARNING — context at ${contextPct}%. Consider wrapping up.`,
     );
     warnState.context_warned = true;
   }
 
-  // Usage warnings
   if (usagePct >= config.usage_critical_pct && !warnState.usage_critical) {
-    warnings.push(
-      `[CONTEXT GUARD - USAGE CRITICAL] API usage at ${usagePct}% (resets in ${usageResetTime}). ` +
-        `You may hit rate limits soon. Consider pausing or switching to a lighter model.`,
+    logVisible(
+      `[CONTEXT GUARD] USAGE CRITICAL — ${usagePct}% (resets in ${usageResetTime}).`,
     );
     warnState.usage_critical = true;
     warnState.usage_warned = true;
     needsDump = true;
   } else if (usagePct >= config.usage_warning_pct && !warnState.usage_warned) {
-    warnings.push(
-      `[CONTEXT GUARD - USAGE WARNING] API usage at ${usagePct}% (resets in ${usageResetTime}). ` +
-        `Monitor your usage — limit approaching.`,
+    logVisible(
+      `[CONTEXT GUARD] USAGE WARNING — ${usagePct}% (resets in ${usageResetTime}).`,
     );
     warnState.usage_warned = true;
   }
 
-  // 4. Auto-dump on critical
+  // 5. Critical: auto-dump + inject into Claude's context (Claude must act)
   if (needsDump) {
     const trigger =
       contextPct >= config.context_critical_pct
@@ -152,27 +149,22 @@ async function main(): Promise<void> {
       usagePct,
       trigger,
     );
-    warnings.push(
-      `State dump saved to: ${dumpPath}\n` +
-        `Session ID: ${sessionId}\n` +
-        `Resume: claude -r ${sessionId}`,
+
+    logVisible(`[CONTEXT GUARD] State dump saved: ${dumpPath}`);
+    logVisible(`[CONTEXT GUARD] Resume: claude -r ${sessionId}`);
+
+    // Only critical gets additionalContext — Claude needs to save state and compact
+    injectContext(
+      hookEvent,
+      `[CONTEXT GUARD - CRITICAL] ${trigger}. ` +
+        `State dump saved to ${dumpPath}. ` +
+        `Save your current state NOW, then use /compact. ` +
+        `Session ID: ${sessionId}`,
     );
   }
 
-  // 5. Save warn state
+  // 6. Save warn state
   await saveWarnState(warnState);
-
-  // 6. Output additionalContext if warnings
-  if (warnings.length > 0) {
-    const hookEvent = input.hook_event_name ?? "PostToolUse";
-    const output: HookOutput = {
-      hookSpecificOutput: {
-        hookEventName: hookEvent,
-        additionalContext: warnings.join("\n\n"),
-      },
-    };
-    console.log(JSON.stringify(output));
-  }
 }
 
 main().catch(() => process.exit(0));
