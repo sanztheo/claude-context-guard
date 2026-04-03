@@ -45,12 +45,7 @@ function formatTimeUntil(isoDate: string): string {
     : `${minutes}m`;
 }
 
-// stderr = visible in terminal, stdout = injected as additionalContext
-function logVisible(msg: string): void {
-  console.error(msg);
-}
-
-function injectContext(hookEvent: string, msg: string): void {
+function inject(hookEvent: string, msg: string): void {
   const output: HookOutput = {
     hookSpecificOutput: {
       hookEventName: hookEvent,
@@ -71,10 +66,10 @@ async function main(): Promise<void> {
   const isSessionStart = hookEvent === "SessionStart";
   const warnState = await getWarnState(sessionId);
 
-  // 1. Check context %
+  // 1. Context %
   const contextPct = await getContextPercentage(input.transcript_path);
 
-  // 2. Check usage % (with caching)
+  // 2. Usage % (cached)
   let usagePct = 0;
   let usage7dPct = 0;
   let usageResetTime = "";
@@ -87,28 +82,28 @@ async function main(): Promise<void> {
     }
   }
 
-  // 3. SessionStart: always show visible briefing in terminal
+  // 3. SessionStart: compact briefing via additionalContext
   if (isSessionStart) {
-    const parts = [`Context: ${contextPct}%`];
+    const parts = [`ctx:${contextPct}%`];
     if (config.check_usage_api) {
       parts.push(
-        `5h: ${usagePct}%${usageResetTime ? ` (${usageResetTime})` : ""}`,
+        `5h:${usagePct}%${usageResetTime ? `(${usageResetTime})` : ""}`,
       );
-      parts.push(`7d: ${usage7dPct}%`);
+      parts.push(`7d:${usage7dPct}%`);
     }
-    logVisible(`[CONTEXT GUARD] ${parts.join(" · ")}`);
+    inject(hookEvent, `[CG] ${parts.join(" · ")}`);
+    // Don't return — still check thresholds below
   }
 
-  // 4. Threshold warnings — visible in terminal
+  // 4. Threshold warnings
+  const warnings: string[] = [];
   let needsDump = false;
 
   if (
     contextPct >= config.context_critical_pct &&
     !warnState.context_critical
   ) {
-    logVisible(
-      `[CONTEXT GUARD] CRITICAL — context at ${contextPct}%. Compaction imminent.`,
-    );
+    warnings.push(`[CG] CRITICAL ctx:${contextPct}% — compact NOW`);
     warnState.context_critical = true;
     warnState.context_warned = true;
     needsDump = true;
@@ -116,27 +111,21 @@ async function main(): Promise<void> {
     contextPct >= config.context_warning_pct &&
     !warnState.context_warned
   ) {
-    logVisible(
-      `[CONTEXT GUARD] WARNING — context at ${contextPct}%. Consider wrapping up.`,
-    );
+    warnings.push(`[CG] WARNING ctx:${contextPct}% — wrap up soon`);
     warnState.context_warned = true;
   }
 
   if (usagePct >= config.usage_critical_pct && !warnState.usage_critical) {
-    logVisible(
-      `[CONTEXT GUARD] USAGE CRITICAL — ${usagePct}% (resets in ${usageResetTime}).`,
-    );
+    warnings.push(`[CG] CRITICAL usage:${usagePct}% resets ${usageResetTime}`);
     warnState.usage_critical = true;
     warnState.usage_warned = true;
     needsDump = true;
   } else if (usagePct >= config.usage_warning_pct && !warnState.usage_warned) {
-    logVisible(
-      `[CONTEXT GUARD] USAGE WARNING — ${usagePct}% (resets in ${usageResetTime}).`,
-    );
+    warnings.push(`[CG] WARNING usage:${usagePct}% resets ${usageResetTime}`);
     warnState.usage_warned = true;
   }
 
-  // 5. Critical: auto-dump + inject into Claude's context (Claude must act)
+  // 5. Critical: auto-dump
   if (needsDump) {
     const trigger =
       contextPct >= config.context_critical_pct
@@ -149,21 +138,15 @@ async function main(): Promise<void> {
       usagePct,
       trigger,
     );
-
-    logVisible(`[CONTEXT GUARD] State dump saved: ${dumpPath}`);
-    logVisible(`[CONTEXT GUARD] Resume: claude -r ${sessionId}`);
-
-    // Only critical gets additionalContext — Claude needs to save state and compact
-    injectContext(
-      hookEvent,
-      `[CONTEXT GUARD - CRITICAL] ${trigger}. ` +
-        `State dump saved to ${dumpPath}. ` +
-        `Save your current state NOW, then use /compact. ` +
-        `Session ID: ${sessionId}`,
-    );
+    warnings.push(`Dump: ${dumpPath} | Resume: claude -r ${sessionId}`);
   }
 
-  // 6. Save warn state
+  // 6. Output warnings
+  if (warnings.length > 0) {
+    inject(hookEvent, warnings.join("\n"));
+  }
+
+  // 7. Save state
   await saveWarnState(warnState);
 }
 
