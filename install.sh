@@ -62,6 +62,29 @@ else
   echo "Hook registered."
 fi
 
+# 5. Add SessionStart hook (checks usage/context on launch)
+if jq -e '.hooks.SessionStart[]? | select(.hooks[]?.command | test("context-guard"))' "${SETTINGS_FILE}" &>/dev/null; then
+  echo "SessionStart hook already registered, skipping."
+else
+  echo "Adding SessionStart hook to settings.json..."
+  SESSION_HOOK=$(jq -n --arg cmd "${HOOK_COMMAND}" '{
+    "hooks": [
+      {
+        "type": "command",
+        "command": $cmd,
+        "timeout": 5000
+      }
+    ]
+  }')
+  TEMP=$(mktemp)
+  jq --argjson entry "${SESSION_HOOK}" '
+    .hooks //= {} |
+    .hooks.SessionStart //= [] |
+    .hooks.SessionStart += [$entry]
+  ' "${SETTINGS_FILE}" > "${TEMP}" && mv "${TEMP}" "${SETTINGS_FILE}"
+  echo "SessionStart hook registered."
+fi
+
 echo ""
 echo "Installation complete!"
 echo ""

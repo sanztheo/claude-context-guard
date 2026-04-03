@@ -12,11 +12,14 @@ if [[ -f "${SETTINGS_FILE}" ]] && command -v jq &>/dev/null; then
   echo "Removing hook from settings.json..."
   TEMP=$(mktemp)
   jq '
-    if .hooks.PostToolUse then
+    (if .hooks.PostToolUse then
       .hooks.PostToolUse |= map(select(.hooks | all(.command | test("context-guard") | not)))
-    else . end
+    else . end) |
+    (if .hooks.SessionStart then
+      .hooks.SessionStart |= map(select(.hooks | all(.command | test("context-guard") | not)))
+    else . end)
   ' "${SETTINGS_FILE}" > "${TEMP}" && mv "${TEMP}" "${SETTINGS_FILE}"
-  echo "Hook removed."
+  echo "Hooks removed (PostToolUse + SessionStart)."
 fi
 
 # 2. Remove source files (keep config and dumps)

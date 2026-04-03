@@ -138,9 +138,10 @@ async function main(): Promise<void> {
 
   // 6. Output additionalContext if warnings
   if (warnings.length > 0) {
+    const hookEvent = input.hook_event_name ?? "PostToolUse";
     const output: HookOutput = {
       hookSpecificOutput: {
-        hookEventName: "PostToolUse",
+        hookEventName: hookEvent,
         additionalContext: warnings.join("\n\n"),
       },
     };

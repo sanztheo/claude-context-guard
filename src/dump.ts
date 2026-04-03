@@ -77,6 +77,12 @@ async function extractTranscriptSummary(
   return summary;
 }
 
+function resolveProjectDumpDir(hookInput: HookInput): string {
+  const projectDir = hookInput.workspace?.project_dir ?? hookInput.cwd;
+  if (projectDir) return `${projectDir}/.context-guard`;
+  return expandPath("~/.claude/context-guard/dumps");
+}
+
 export async function createStateDump(
   hookInput: HookInput,
   config: GuardConfig,
@@ -84,7 +90,7 @@ export async function createStateDump(
   usagePct: number,
   trigger: string,
 ): Promise<string> {
-  const dumpDir = expandPath(config.dump_dir);
+  const dumpDir = resolveProjectDumpDir(hookInput);
   if (!existsSync(dumpDir)) mkdirSync(dumpDir, { recursive: true });
 
   const now = new Date();
