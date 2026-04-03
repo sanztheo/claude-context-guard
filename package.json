@@ -1,0 +1,19 @@
+{
+  "name": "claude-context-guard",
+  "version": "0.1.0",
+  "description": "Claude Code hook that monitors context window and API usage, warns before limits, and auto-saves session state",
+  "type": "module",
+  "main": "src/guard.ts",
+  "scripts": {
+    "guard": "bun src/guard.ts",
+    "test": "bun test"
+  },
+  "keywords": ["claude-code", "hook", "context-window", "usage-monitor"],
+  "license": "MIT",
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "devDependencies": {
+    "bun-types": "^1.3.11"
+  }
+}

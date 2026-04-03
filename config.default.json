@@ -1,0 +1,10 @@
+{
+  "context_warning_pct": 75,
+  "context_critical_pct": 90,
+  "usage_warning_pct": 70,
+  "usage_critical_pct": 85,
+  "check_usage_api": true,
+  "cache_ttl_seconds": 120,
+  "dump_dir": "~/.claude/context-guard/dumps",
+  "enabled": true
+}
