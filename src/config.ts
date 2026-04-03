@@ -1,7 +1,11 @@
 import type { GuardConfig } from "./types.ts";
 import { existsSync } from "node:fs";
 
-const CONFIG_PATH = `${process.env.HOME}/.claude/context-guard/config.json`;
+function expandPath(p: string): string {
+  return p.replace(/^~/, process.env.HOME ?? "~");
+}
+
+const CONFIG_PATH = expandPath("~/.claude/context-guard/config.json");
 
 const DEFAULTS: GuardConfig = {
   context_warning_pct: 75,

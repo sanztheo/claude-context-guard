@@ -46,10 +46,12 @@ function formatTimeUntil(isoDate: string): string {
 }
 
 async function main(): Promise<void> {
+  // Read stdin first to avoid broken pipe if hook runner waits for consumption
+  const input: HookInput = JSON.parse(await Bun.stdin.text());
+
   const config = await loadConfig();
   if (!config.enabled) return;
 
-  const input: HookInput = JSON.parse(await Bun.stdin.text());
   const sessionId = input.session_id;
   const warnState = await getWarnState(sessionId);
 
