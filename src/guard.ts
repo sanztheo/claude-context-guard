@@ -1,7 +1,6 @@
 import type { HookInput, HookOutput } from "./types.ts";
 import { getContextPercentage } from "./context.ts";
 import { getUsageData } from "./usage.ts";
-import { createStateDump } from "./dump.ts";
 import { loadConfig } from "./config.ts";
 
 const WARN_STATE_PATH = "/tmp/claude-context-guard-warned.json";
@@ -125,20 +124,19 @@ async function main(): Promise<void> {
     warnState.usage_warned = true;
   }
 
-  // 5. Critical: auto-dump
+  // 5. Critical: instruct Claude to save state
   if (needsDump) {
-    const trigger =
-      contextPct >= config.context_critical_pct
-        ? `context at ${contextPct}%`
-        : `usage at ${usagePct}%`;
-    const dumpPath = await createStateDump(
-      input,
-      config,
-      contextPct,
-      usagePct,
-      trigger,
+    const projectDir = input.workspace?.project_dir ?? input.cwd ?? ".";
+    const stateFile = `${projectDir}/.context-guard/state.md`;
+    warnings.push(
+      `ACTION REQUIRED: Write a detailed state file to ${stateFile} with:\n` +
+        `- Session ID: ${sessionId} (resume: claude -r ${sessionId})\n` +
+        `- Summary of everything done this session\n` +
+        `- Current status and any blockers\n` +
+        `- Exact next steps to continue\n` +
+        `- Key files modified\n` +
+        `Then run /compact or suggest starting a new session.`,
     );
-    warnings.push(`Dump: ${dumpPath} | Resume: claude -r ${sessionId}`);
   }
 
   // 6. Output warnings
