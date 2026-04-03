@@ -14,7 +14,6 @@ const DEFAULTS: GuardConfig = {
   usage_critical_pct: 85,
   check_usage_api: true,
   cache_ttl_seconds: 120,
-  dump_dir: "~/.claude/context-guard/dumps",
   enabled: true,
 };
 

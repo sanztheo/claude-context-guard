@@ -22,10 +22,14 @@ if [[ -f "${SETTINGS_FILE}" ]] && command -v jq &>/dev/null; then
   echo "Hooks removed (PostToolUse + SessionStart)."
 fi
 
-# 2. Remove source files (keep config and dumps)
+# 2. Remove skills
+echo "Removing skills..."
+rm -f "${HOME}/.claude/commands/save-session.md" "${HOME}/.claude/commands/save-compact.md"
+
+# 3. Remove source files (keep config)
 echo "Removing source files..."
 rm -rf "${INSTALL_DIR}/src" "${INSTALL_DIR}/package.json"
 
 echo ""
-echo "Uninstalled. Config and dumps preserved at ${INSTALL_DIR}/"
+echo "Uninstalled. Config preserved at ${INSTALL_DIR}/"
 echo "To remove everything: rm -rf ${INSTALL_DIR}"

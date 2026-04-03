@@ -2,8 +2,8 @@
 set -euo pipefail
 
 readonly INSTALL_DIR="${HOME}/.claude/context-guard"
-readonly DUMPS_DIR="${INSTALL_DIR}/dumps"
 readonly SETTINGS_FILE="${HOME}/.claude/settings.json"
+readonly COMMANDS_DIR="${HOME}/.claude/commands"
 readonly HOOK_COMMAND="bun ${INSTALL_DIR}/src/guard.ts"
 
 echo "Claude Context Guard — Installer"
@@ -22,12 +22,16 @@ fi
 
 # 2. Copy source files
 echo "Installing to ${INSTALL_DIR}..."
-mkdir -p "${INSTALL_DIR}/src" "${DUMPS_DIR}"
+mkdir -p "${INSTALL_DIR}/src" "${COMMANDS_DIR}"
 
 cp src/guard.ts src/context.ts src/usage.ts src/dump.ts src/config.ts src/types.ts "${INSTALL_DIR}/src/"
 cp package.json "${INSTALL_DIR}/"
 
-# 3. Create config if not exists
+# 3. Install skills (slash commands)
+echo "Installing skills to ${COMMANDS_DIR}..."
+cp skills/save-session.md skills/save-compact.md "${COMMANDS_DIR}/"
+
+# 4. Create config if not exists
 if [[ ! -f "${INSTALL_DIR}/config.json" ]]; then
   cp config.default.json "${INSTALL_DIR}/config.json"
   echo "Created config at ${INSTALL_DIR}/config.json"
@@ -35,7 +39,7 @@ else
   echo "Config already exists, skipping."
 fi
 
-# 4. Add hook to settings.json
+# 5. Add hook to settings.json
 if [[ ! -f "${SETTINGS_FILE}" ]]; then
   echo '{}' > "${SETTINGS_FILE}"
 fi
@@ -62,7 +66,7 @@ else
   echo "Hook registered."
 fi
 
-# 5. Add SessionStart hook (checks usage/context on launch)
+# 6. Add SessionStart hook (checks usage/context on launch)
 if jq -e '.hooks.SessionStart[]? | select(.hooks[]?.command | test("context-guard"))' "${SETTINGS_FILE}" &>/dev/null; then
   echo "SessionStart hook already registered, skipping."
 else
@@ -88,8 +92,8 @@ fi
 echo ""
 echo "Installation complete!"
 echo ""
-echo "Config: ${INSTALL_DIR}/config.json"
-echo "Dumps:  ${DUMPS_DIR}/"
+echo "Config:  ${INSTALL_DIR}/config.json"
+echo "Skills:  /save-session, /save-compact"
 echo ""
 echo "Edit config.json to adjust thresholds."
 echo "Restart Claude Code to activate."

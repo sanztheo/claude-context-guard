@@ -75,8 +75,16 @@ async function main(): Promise<void> {
   if (config.check_usage_api) {
     const usage = await getUsageData(config.cache_ttl_seconds);
     if (usage) {
-      usagePct = Math.round(usage.five_hour.utilization);
-      usage7dPct = Math.round(usage.seven_day.utilization);
+      usagePct = Math.round(
+        usage.five_hour.utilization <= 1
+          ? usage.five_hour.utilization * 100
+          : usage.five_hour.utilization,
+      );
+      usage7dPct = Math.round(
+        usage.seven_day.utilization <= 1
+          ? usage.seven_day.utilization * 100
+          : usage.seven_day.utilization,
+      );
       usageResetTime = formatTimeUntil(usage.five_hour.resets_at);
     }
   }

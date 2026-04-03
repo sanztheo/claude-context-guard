@@ -39,7 +39,6 @@ export interface GuardConfig {
   usage_critical_pct: number;
   check_usage_api: boolean;
   cache_ttl_seconds: number;
-  dump_dir: string;
   enabled: boolean;
 }
 
