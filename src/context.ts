@@ -1,6 +1,19 @@
 import { existsSync } from "node:fs";
 
-const MAX_CONTEXT_TOKENS = 200_000;
+const DEFAULT_CONTEXT_TOKENS = 200_000;
+
+const MODEL_CONTEXT_TOKENS: Record<string, number> = {
+  "opus-4": 1_000_000,
+  "sonnet-4": 1_000_000,
+};
+
+export function getMaxTokensForModel(modelId?: string): number {
+  if (!modelId) return DEFAULT_CONTEXT_TOKENS;
+  for (const [pattern, tokens] of Object.entries(MODEL_CONTEXT_TOKENS)) {
+    if (modelId.includes(pattern)) return tokens;
+  }
+  return DEFAULT_CONTEXT_TOKENS;
+}
 
 interface TokenUsage {
   input_tokens?: number;
@@ -17,6 +30,7 @@ interface TranscriptEntry {
 
 export async function getContextPercentage(
   transcriptPath: string,
+  maxTokens: number = DEFAULT_CONTEXT_TOKENS,
 ): Promise<number> {
   if (!transcriptPath || !existsSync(transcriptPath)) return 0;
 
@@ -49,7 +63,7 @@ export async function getContextPercentage(
       }
     }
 
-    return Math.min(100, Math.round((latestTokens / MAX_CONTEXT_TOKENS) * 100));
+    return Math.min(100, Math.round((latestTokens / maxTokens) * 100));
   } catch {
     return 0;
   }

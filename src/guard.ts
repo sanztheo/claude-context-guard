@@ -1,5 +1,5 @@
 import type { HookInput, HookOutput } from "./types.ts";
-import { getContextPercentage } from "./context.ts";
+import { getContextPercentage, getMaxTokensForModel } from "./context.ts";
 import { getUsageData } from "./usage.ts";
 import { loadConfig } from "./config.ts";
 
@@ -65,8 +65,12 @@ async function main(): Promise<void> {
   const isSessionStart = hookEvent === "SessionStart";
   const warnState = await getWarnState(sessionId);
 
-  // 1. Context %
-  const contextPct = await getContextPercentage(input.transcript_path);
+  // 1. Context % (adapt to model's context window)
+  const maxTokens = getMaxTokensForModel(input.model?.id);
+  const contextPct = await getContextPercentage(
+    input.transcript_path,
+    maxTokens,
+  );
 
   // 2. Usage % (cached)
   let usagePct = 0;

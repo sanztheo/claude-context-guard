@@ -6,7 +6,7 @@ A Claude Code hook that monitors your context window and API usage in real-time.
 
 ## What it does
 
-- **Monitors context window** — tracks token usage as a percentage of the 200K context limit
+- **Monitors context window** — tracks token usage as a percentage of the model's context limit (auto-detects: 1M for Opus/Sonnet 4, 200K for others)
 - **Monitors API quota** — checks your 5-hour and 7-day usage windows via the Anthropic OAuth API
 - **Warns at configurable thresholds** — warning (75%) and critical (90%) levels
 - **On critical** — instructs Claude to write a detailed state file so you can resume after `/compact` or in a new session

@@ -6,7 +6,7 @@ export interface HookInput {
   tool_name: string;
   tool_input: Record<string, unknown>;
   tool_response: Record<string, unknown>;
-  model: {
+  model?: {
     id: string;
     display_name: string;
   };
