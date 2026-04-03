@@ -60,16 +60,42 @@ async function main(): Promise<void> {
 
   // 2. Check usage % (with caching)
   let usagePct = 0;
+  let usage7dPct = 0;
   let usageResetTime = "";
   if (config.check_usage_api) {
     const usage = await getUsageData(config.cache_ttl_seconds);
     if (usage) {
       usagePct = Math.round(usage.five_hour.utilization);
+      usage7dPct = Math.round(usage.seven_day.utilization);
       usageResetTime = formatTimeUntil(usage.five_hour.resets_at);
     }
   }
 
-  // 3. Build warnings
+  const isSessionStart = input.hook_event_name === "SessionStart";
+
+  // 3. On SessionStart, always show a status briefing
+  if (isSessionStart) {
+    const parts = [`[CONTEXT GUARD] Context: ${contextPct}%`];
+    if (config.check_usage_api) {
+      parts.push(
+        `Usage 5h: ${usagePct}%${usageResetTime ? ` (resets in ${usageResetTime})` : ""}`,
+      );
+      parts.push(`Usage 7d: ${usage7dPct}%`);
+    }
+    const briefing = parts.join(" | ");
+
+    const output: HookOutput = {
+      hookSpecificOutput: {
+        hookEventName: "SessionStart",
+        additionalContext: briefing,
+      },
+    };
+    console.log(JSON.stringify(output));
+
+    // Still check thresholds below to also warn if needed
+  }
+
+  // 4. Build warnings
   const warnings: string[] = [];
   let needsDump = false;
 
